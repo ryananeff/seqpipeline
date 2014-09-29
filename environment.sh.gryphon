@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# initialize
+export home="/data/projects_gibbons/home/neffra"
+export reference="$home/references/GRCh38_noalt.fa"
+export PATH="$home/tools/java7/bin/:$PATH"              #module load java/1.7.0_51
+export PATH="$home/tools/samtools-0.1.19/:$PATH"        #module load samtools/0.1.19
+export PATH="$home/tools/bwa-0.7.8/:$PATH"              #module load bwa/0.7.8
+export GATK_HOME="$home/tools/gatk32"                   #module load GATK/3.2-2
+export tools="$home/tools/"
+export scratchdir="/data/projects_gibbons/scratch/test/"
+
