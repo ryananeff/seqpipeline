@@ -50,7 +50,7 @@ def liftoverVCF(ref_vcf, liftover_file, out_file, reverse=False): # this goes fr
                        names=colnames)
     if reverse==False:
     	liftover.set_index(['ref_chr', 'ref_start', 'ref_end'], inplace=True)
-    else:
+    elif reverse=True:
 	liftover.set_index(['alt_chr', 'alt_start', 'alt_end'], inplace=True)
     
     # now that we're init'd, let's start
@@ -101,7 +101,7 @@ def lift_master(ref_pos, liftover, chrom, reverse):
             last_chr = chrom
         if ref_pos > lift_til: # check if cached?
             try:
-                delta, lift_til = liftdelta(ref_pos, lifttable, reverse) # converts position into alt ref pos
+                delta, lift_til = liftdelta(ref_pos, lifttable, start_idx, end_idx, reverse) # converts position into alt ref pos
             except:
                 return None
     else:
@@ -113,7 +113,7 @@ def liftdelta(pos, liftover, start_idx, end_idx, reverse):
     match = liftover.loc[(start_idx <= pos) & (end_idx > pos)].reset_index().irow(0)
     if reverse==False:
         return match['alt_start'] - match['ref_start'], match['ref_end']
-    if reverse==True:
+    elif reverse==True:
         return match['ref_start'] - match['alt_start'], match['alt_end']
 
 # run the program if called from the command line

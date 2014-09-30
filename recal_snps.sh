@@ -20,14 +20,14 @@ name="$vcffile"_snps
 ###########################################
 
 # select SNPs only for future analysis
-echo "$(date): GATK selecting SNPs..."
-java -Xmx8g -Djava.io.tmpdir=$scratchdir -jar $GATK_HOME/GenomeAnalysisTK.jar \
--R "$reference" \
--T SelectVariants \
---variant "$vcffile" \
--o "$name".vcf \
--selectType SNP -selectType MNP;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during SelectVariants GATK"; exit 1; else echo "$(date): SelectVariants done."; fi
+#echo "$(date): GATK selecting SNPs..."
+#java -Xmx8g -Djava.io.tmpdir=$scratchdir -jar $GATK_HOME/GenomeAnalysisTK.jar \
+#-R "$reference" \
+#-T SelectVariants \
+#--variant "$vcffile" \
+#-o "$name".vcf \
+#-selectType SNP -selectType MNP;
+#if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during SelectVariants GATK"; exit 1; else echo "$(date): SelectVariants done."; fi
 
 # generate the error model for variant quality score recalibration
 echo "$(date): GATK generating error model for recalibration of SNPs"
