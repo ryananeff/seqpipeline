@@ -22,11 +22,11 @@ def main(argv):
    	try:
 		opts, args = getopt.getopt(argv,"c:a:l:s:i:g",["common=","alt=", "liftover=", "sites=", "idf=","chrom="])
    	except getopt.GetoptError:
-      		print 'compare_aln_vcf.py -c <common.bam> -a <alt.bam> -l <liftover.chain> -s <sites.tsv> -i <id> -g <chrom>'
+      		print 'compare_aln_sample.py -c <common.bam> -a <alt.bam> -l <liftover.chain> -s <sample_interval> -i <id> -g <chrom>'
       		sys.exit(2)
    	for opt, arg in opts:
       		if opt == '-h':
-         		print 'compare_aln_vcf.py -c <common.bam> -a <alt.bam> -l <liftover.chain> -s <sites.tsv> -i <id> -g <chrom>'
+         		print 'compare_aln_vcf.py -c <common.bam> -a <alt.bam> -l <liftover.chain> -s <sample_interval> -i <id> -g <chrom>'
          		sys.exit()
       		elif opt in ("-c", "--common"):
          		orig_bam = arg
@@ -34,8 +34,12 @@ def main(argv):
          		final_bam = arg
 		elif opt in ("-l", "--liftover"):
 			liftover = arg
-		elif opt in ("-s", "--sites"):
-			sites_file = arg
+		elif opt in ("-s", "--interval"):
+			try:
+				sample_interval = int(arg)
+			except:
+				print "sample_interval must be an integer"
+				raise
 		elif opt in ("-i", "--idf"):
 			idf = arg
                 elif opt in ("-g", "--chrom"):
@@ -44,14 +48,14 @@ def main(argv):
 			assert False, "unhandled option"
 	if idf == '':
 		idf = orig_bam.split("/")[-1].split("_")[0]
-	compare_alignments_vcf(orig_bam, final_bam, idf, liftover, sites_file)
+	compare_alignments_samp(orig_bam, final_bam, idf, liftover, sample_interval)
 
-def compare_alignments_vcf(orig_bam, final_bam, idf, liftover, sites_file, chrom=None):
+def compare_alignments_samp(orig_bam, final_bam, idf, liftover, sample_interval, chrom=None):
     print orig_bam
     print final_bam
     print idf
     print liftover
-    print sites_file
+    print sample_interval
     
     #index original BAM file
     #if os.path.isfile('.'.join(orig_bam.split('.')[0:-1]) + '.bai') == False:
@@ -77,23 +81,21 @@ def compare_alignments_vcf(orig_bam, final_bam, idf, liftover, sites_file, chrom
         liftover (string)
             The filename of a liftover chain file generated during the 
             orig->final reference creation process.
-        sites_file (string)
-            The filename of the sites changed between references for 
-            statistics collection. This will be formatted identical
-	    to a VCF file.
+        sample_interval (string)
+            The distance between genomic positions that we should check.
         idf (string)
             This id is appended at the beginning of the outfile name. The 
             orig_bam and final_bam should have the same id. This also 
             needs to be identical to the sample name in the sites file.
     
     Outputs:
-        {id}-compare_d.arr
+        {id}-compare_d_samp.arr
             A listing of the collected metrics by change in each BAM file.
     '''
     if chrom != None:
-        out_file = final_bam + "_" + chrom + "_compare_d.arr"
+        out_file = final_bam + "_" + chrom + "_compare_d_samp.arr"
     else:
-        out_file = final_bam + "_compare_d.arr"
+        out_file = final_bam + "_compare_d_samp.arr"
     
     # here for legacy
     metrics = [{'stepper':'all','mask':2}]        # this filters for secondary/non-primary alignments
@@ -106,8 +108,6 @@ def compare_alignments_vcf(orig_bam, final_bam, idf, liftover, sites_file, chrom
     final_fp = pysam.Samfile(final_bam, 'rb')
     
     # open sites and liftover files
-    headnum = int(subprocess.check_output('head -n 500 ' + sites_file + ' | grep "#" | wc -l', shell=True))# this gives us the number of lines in the header, minus the col titles
-    sites = pd.read_csv(sites_file, sep='\t', skiprows=headnum-1)
     colnames=['chain','score','ref_chr','ref_len','ref_misc','ref_start','ref_end',
               'alt_chr','alt_len','alt_misc','alt_start','alt_end']
     
@@ -121,9 +121,6 @@ def compare_alignments_vcf(orig_bam, final_bam, idf, liftover, sites_file, chrom
     #open output file
     out_fp = open(out_file, "wb")
     
-    # for fast retrieval - assume the input is already sorted which it has to be
-    sites = sites.set_index([sites['#CHROM'], sites['POS']])[['#CHROM','POS','REF','ALT','INFO','FORMAT',idf]]
-    
     # some more things to prep for traversal - get list of chromosomes
     if chrom != None:
         chrom = [chrom]
@@ -134,22 +131,21 @@ def compare_alignments_vcf(orig_bam, final_bam, idf, liftover, sites_file, chrom
     
     for cur_chrom in chrom:
         out_arr = [] # this will hold the values until we're ready to print
-	slx = sites.loc[cur_chrom]
-        sl = list(slx['POS'])
+        end_length = int(lifttable.loc[cur_chrom].iloc[0][5]) # this is the length of the original BAM file
+        sl = range(1, end_length, sample_interval)
         for pos in sl:
-            orig_result = get_pileup_statistics(orig_fp, cur_chrom, pos-1) # get the result from the original BAM
+            orig_result = get_pileup_statistics(orig_fp, cur_chrom, pos) # get the result from the original BAM
 	    try:
-	    	newpos = lift_master(pos-1, lifttable, cur_chrom, False) # converts position into alt ref pos
+	    	newpos = lift_master(pos, lifttable, cur_chrom, False) # converts position into alt ref pos
             except:
-	    	sys.stderr.write("WARN: couldn't lift position at " + str(cur_chrom) + ":" + str(pos-1) + "\n")
+	    	sys.stderr.write("WARN: couldn't lift position at " + str(cur_chrom) + ":" + str(pos) + "\n")
 	    	continue
             if newpos==None:
-		sys.stderr.write("WARN: couldn't lift position at " + str(cur_chrom) + ":" + str(pos-1) + "\n")
+		sys.stderr.write("WARN: couldn't lift position at " + str(cur_chrom) + ":" + str(pos) + "\n")
                 continue
 	    alt_result = get_pileup_statistics(final_fp, cur_chrom, newpos)
             final_result = []
-            final_result.append([cur_chrom, pos-1])
-            final_result.append(list(slx.loc[pos][['REF','ALT','INFO','FORMAT',idf]]))
+            final_result.append([cur_chrom, pos])
             final_result.append(orig_result)
             final_result.append(alt_result)
             final_result = [item for sublist in final_result for item in sublist]

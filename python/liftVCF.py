@@ -87,6 +87,8 @@ def lift_master(ref_pos, liftover, chrom, reverse):
             start_idx = lifttable.index.get_level_values('ref_start')
             end_idx = lifttable.index.get_level_values('ref_end')
             last_chr = chrom
+	    lift_til = 0 #important!
+	    delta = 0 #important!
         if ref_pos > lift_til: # check if cached?
             try:
                 delta, lift_til = liftdelta(ref_pos, lifttable, start_idx, end_idx, reverse) # converts position into alt ref pos
@@ -99,6 +101,8 @@ def lift_master(ref_pos, liftover, chrom, reverse):
             start_idx = lifttable.index.get_level_values('alt_start')
             end_idx = lifttable.index.get_level_values('alt_end')
             last_chr = chrom
+	    lift_til = 0 #important!
+	    delta = 0 #important!
         if ref_pos > lift_til: # check if cached?
             try:
                 delta, lift_til = liftdelta(ref_pos, lifttable, start_idx, end_idx, reverse) # converts position into alt ref pos
