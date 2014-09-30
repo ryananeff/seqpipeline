@@ -49,7 +49,7 @@ def liftoverVCF(ref_vcf, liftover_file, out_file, reverse=False): # this goes fr
     liftover = pd.read_csv(liftover_file,sep='\t',header=None, 
                        names=colnames)
     if reverse==False:
-    liftover.set_index(['ref_chr', 'ref_start', 'ref_end'], inplace=True)
+    	liftover.set_index(['ref_chr', 'ref_start', 'ref_end'], inplace=True)
     elif reverse==True:
 	liftover.set_index(['alt_chr', 'alt_start', 'alt_end'], inplace=True)
     
