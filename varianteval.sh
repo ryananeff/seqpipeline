@@ -15,6 +15,7 @@ source environment.sh
 alt="$1" # the alternate ref vcf file
 common="$2" # the common ref vcf file
 validation="$3" # validation SNPs
+name="$4"
 
 ###########################################
 
@@ -22,9 +23,10 @@ echo "$(date): GATK comparing variant sets"
 java -Xmx16g -Djava.io.tmpdir="$scratchdir" -jar $GATK_HOME/GenomeAnalysisTK.jar \
 -R "$reference" \
 -T VariantEval \
--o "$alt".eval.gatkreport \
+-o "$name".eval.gatkreport \
+--sample "$name" \
 --eval:alt "$alt" \
---comp:common "$common" \
---goldStandard "$validation";
+--eval:common "$common" \
+--dbsnp "$validation";
 if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during GATK VariantEval"; exit 1; else echo "$(date): GATK VariantEval done"; fi
 
