@@ -9,6 +9,7 @@ else
     echo "No environment file detected.	The program will now stop!"
     exit 1
 fi
+export home=$6
 source environment.sh
 
 # set variables
@@ -47,7 +48,7 @@ if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during tem
 
 # remove duplicates (picard)
 echo "$(date): starting duplicate marking..."
-java -Xmx8g -Djava.io.tmpdir="$scratchdir" -jar $home/tools/picard-tools/MarkDuplicates.jar \
+java -Xmx8g -jar $home/tools/picard-tools/MarkDuplicates.jar \
 I="$name".sort.bam \
 O="$name".rmdup.bam \
 M="$name".dupmetrics.txt \
@@ -63,7 +64,7 @@ if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during sam
 
 # picard fixmate to write coordinates
 echo "$(date): starting picardtools fixmateinfo..."
-java -Xmx8g -Djava.io.tmpdir="$scratchdir" -jar $home/tools/picard-tools/FixMateInformation.jar \
+java -Xmx8g -jar $home/tools/picard-tools/FixMateInformation.jar \
 I="$name".rmdup.bam \
 O="$name".mated.bam \
 SO=coordinate \
@@ -77,7 +78,7 @@ if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during sam
 
 # add back read groups
 echo "$(date): adding back read groups..."
-java -Xmx8g -Djava.io.tmpdir="$scratchdir" -jar $home/tools/picard-tools/AddOrReplaceReadGroups.jar \
+java -Xmx8g -jar $home/tools/picard-tools/AddOrReplaceReadGroups.jar \
 I="$name".mated.bam \
 O="$name".mated.rg.bam \
 RGID="$lane" \
