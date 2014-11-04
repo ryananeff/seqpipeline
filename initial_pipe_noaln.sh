@@ -4,7 +4,7 @@
 ENV="environment.sh"
 if [ -f $ENV ];
 then
-    echo -ne "Detected environment file!\nRemember that this file defines the reference that should be used in later steps."       
+    echo "Detected environment file!\nRemember that this file defines the reference that should be used in later steps."       
 else
     echo "No environment file detected.	The program will now stop!"
     exit 1
@@ -12,9 +12,11 @@ fi
 source environment.sh
 
 # set variables
-sample=$1
-lane=$2
-study=$3
+left=$1
+right=$2
+sample=$3
+lane=$4
+study=$5
 name="$sample"_"$lane"
 
 ###########################################
@@ -22,7 +24,7 @@ name="$sample"_"$lane"
 # run new bwamem alignment for hg38 reference: use two threads and 8g of RAM (we're being hopeful here...)
 #echo "$(date): starting bwamem alignment...";
 #bwa mem -t 2 -w 100 -k 20 -M \
-#	-R '@RG\tID:1\tSM:"$1"\tLB:"$1"\tPL:Illumina\tPU:hs' \
+#	-R '@RG\tID:1\tSM:"$1"\LB:"$1"\tPL:Illumina\tPU:hs' \
 #	"$reference" "$left" "$right" > "$name".sam;
 #if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during bwa-mem      "; exit 1; else echo "$(date): bwamem alignment done."; fi
 
@@ -36,9 +38,9 @@ name="$sample"_"$lane"
 #if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during samtools sort"; exit 1; else echo "$(date): sorting bam done."; fi
 
 # if all went well, remove the old files (we should only get here if there was zero exit statuses
-if [ -s "$name".sort.bam ]
-then echo "$(date): sorted BAM file found with non-zero size; continuing..."
-else echo "$(date): unexpected error: sorted BAM file is missing; exiting"; exit 2; fi
+#if [ -s "$name".sort.bam ]
+#then echo "$(date): sorted BAM file found with non-zero size; continuing..."
+#else echo "$(date): unexpected error: sorted BAM file is missing; exiting"; exit 2; fi
 #echo "$(date): removing temporary files..."
 #rm "$name".sam "$name".bam
 #if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during temporary file removal"; exit 1; else echo "$(date): removed temporary SAM and BAM."; fi

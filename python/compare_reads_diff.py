@@ -20,9 +20,9 @@ def main(argv):
 	sites_file = ''
 	idf = ''
    	try:
-		opts, args = getopt.getopt(argv,"c:a:l:i:g",["common=","alt=", "liftover=", "sites=", "idf=","chrom="])
+		opts, args = getopt.getopt(argv,"c:a:l:s:i:g",["common=","alt=", "liftover=", "sites=", "idf=","chrom="])
    	except getopt.GetoptError:
-      		print 'compare_reads.py -c <common.bam> -a <alt.bam> -l <liftover.chain> -i <id> -g <chrom>'
+      		print 'compare_reads.py -c <common.bam> -a <alt.bam> -l <liftover.chain> -s <sites.tsv> -i <id> -g <chrom>'
       		sys.exit(2)
    	for opt, arg in opts:
       		if opt == '-h':
@@ -34,6 +34,8 @@ def main(argv):
          		final_bam = arg
 		elif opt in ("-l", "--liftover"):
 			liftover = arg
+                elif opt in ("-s", "--sites"):
+			sitesf = arg
 		elif opt in ("-i", "--idf"):
 			idf = arg
                 elif opt in ("-g", "--chrom"):
@@ -42,25 +44,20 @@ def main(argv):
 			assert False, "unhandled option"
 	if idf == '':
 		idf = orig_bam.split("/")[-1].split("_")[0]
-	compare_alignments_vcf(orig_bam, final_bam, idf, liftover, sites_file)
+	compare_alignments_vcf(orig_bam, final_bam, liftover, sitesf, idf, chrom)
 
-def compare_reads(orig_bam, final_bam, idf, liftover, chrom=None):
+def compare_reads(orig_bam, final_bam, liftover, sitesf, idf, chrom=None):
     print orig_bam
     print final_bam
-    print idf
+    print sites_file
     print liftover
+    print sitesf
     
-    #index original BAM file
-    #if os.path.isfile('.'.join(orig_bam.split('.')[0:-1]) + '.bai') == False:
-    #subprocess.check_output('samtools index ' + orig_bam, shell=True)
-    
-    #index final BAM file
-    #if os.path.isfile('.'.join(final_bam.split('.')[0:-1]) + '.bai') == False:
-    #subprocess.check_output('samtools index ' + final_bam, shell=True)
+   #TODO: Add a reverse option in this program
     
 
     '''
-    Usage: Compares every single read between two BAM files and checks if they have moved position and to where.
+    Usage: Compares reads from the original file and sees where they have moved in the final file.
 	Outputs reads which have changed position in a special format.                          
     
     Inputs:
@@ -73,32 +70,39 @@ def compare_reads(orig_bam, final_bam, idf, liftover, chrom=None):
         liftover (string)
             The filename of a liftover chain file generated during the 
             orig->final reference creation process.
+	sitesf (string)
+	    This is the file of positions in the original file you would 
+	    like to extract reads from to see where they have gone.
         idf (string)
             This id is appended at the beginning of the outfile name. The 
             orig_bam and final_bam should have the same id. This also 
             needs to be identical to the sample name in the sites file.
+	chrom (string) - DISABLED
+	    Only look at a particular chromosome. TODO to reenable it.
     
     Outputs:
         {id}-compare_d.arr
             A listing of the collected metrics by change in each BAM file.
+
     '''
+    
     if chrom != None:
         out_file = final_bam + "_" + chrom + "_compare_reads.b2b"
     else:
         out_file = final_bam + "_compare_reads.b2b"
     
-    # here for legacy
-    metrics = [{'stepper':'all','mask':2}]        # this filters for secondary/non-primary alignments
-    metrics.append({'stepper':'all','mask':3340}) # this filters for properly mapped reads
-        
     # open BAM files given in input parameters
     assert pysam.Samfile(orig_bam, 'rb'), 'ERROR: Cannot open orig_bam file.'
     assert pysam.Samfile(final_bam, 'rb'), 'ERROR: Cannot open final_bam file.'
     orig_fp = pysam.Samfile(orig_bam, 'rb')
     final_fp = pysam.Samfile(final_bam, 'rb')
     
+    # open sites file
+    num = subprocess.check_output('head -n 1000 ' + sitesf + ' | grep "#" | wc -l', shell=True)
+    sitesarr = pd.read_csv(sites_file, header=None, sep='\t', skiprows=num) # this is a VCF file
+    sitesarr = sitesarr[[0,1,3,4]] # only keep the chromosome, position, ref, alt columns, drop everything else
+    
     # open liftover file
-
     colnames=['chain','score','ref_chr','ref_len','ref_misc','ref_start','ref_end',
               'alt_chr','alt_len','alt_misc','alt_start','alt_end']
     
@@ -113,34 +117,40 @@ def compare_reads(orig_bam, final_bam, idf, liftover, chrom=None):
     #open output file
     out_fp = open(out_file, "wb")
 
+    sys.stderr.write("Initialization complete. Starting processing...\n")
+
+    #TODO: get the region list
+    # let's define the region as all the reads containing the position
+    # this should mean the pileup command includes start and start+len
+
+    # the sites file should be the unique variants in hg38
+    regionlist = zip(sitesarr[0], sitesarr[1], sitesarr[4].map(lambda x: len(x)))
+
+    sys.stderr.write("Region list loaded (" + str(len(regionlist)) + " variants).\n")
+
     # get the reads... this will take a LONG TIME
-    orig_reads = retrieveReads(orig_fp, 0)
-    alt_reads = retrieveReads(final_fp, 2)
+    orig_reads = retrieveReads_regions(orig_fp, 0, regionlist)
+    sys.stderr.write("Collected " + str(len(orig_reads)) + " reads from 1st BAM file. Finding in 2nd BAM file...\n")
+
+    alt_reads = retrieveReads_filter(final_fp, 0, set(orig_reads[0]))
+    sys.stderr.write("Found " + str(len(alt_reads)) + " reads matching 1st BAM file in 2nd BAM file. Printing statistics...\n")
 
     # now let's do the comparison... hope this doesn't go on forever
-    for a,i in alt_reads.iterrows():
-        alt_read_name = i[0]
-	alt_read_chr = i[1]
-	alt_read_pos = i[2]
+    for a,i in orig_reads.iterrows():
+        read_name = i[0]
+	read_chr = i[1]
+	read_pos = i[2]
         try:
-            res = orig_reads.loc[alt_read_name]
+            res = alt_reads.loc[alt_read_name]
         except:
-            outarr = [alt_read_name, alt_read_chr, alt_read_pos, None, None, None, "read not aligned in common ref"]
+            outarr = [read_name, read_chr, read_pos, None, None, None, "read not aligned in 2nd BAM (e.g. final BAM)"]
             out_fp.write(custom_write(outarr))
-        # if the read exists in common ref, lift it over to alt ref and check its position
-        afr_pos = lift_master(res[2], lifttable, 'chr' + str(res[1]+1), reverse=False) # going in the hgXX -> AFRGhxx direction
-        if ((afr_pos != alt_read_pos) | (res[1] != alt_read_chr)):
-		outarr = [alt_read_name, alt_read_chr, alt_read_pos, res[0], res[1], afr_pos, "new position in pop ref"]
+        # if the read exists in alt ref, lift it over to com ref and check its position
+        com_pos = lift_master(res[2], lifttable, 'chr' + str(res[1]+1), reverse=True)
+        if ((com_pos != read_pos) | (res[1] != read_chr)):
+		outarr = [read_name, read_chr, read_pos, res[0], res[1], com_pos, "new position in 2nd BAM (e.g. final BAM)"]
 		out_fp.write(custom_write(out_arr))
-     # one last thing - check for reads only aligned in common ref
-     orig_idx = set(orig_reads.index)
-     alt_idx = set(alt_reads.index)
-     common_idx = orig_idx.difference(alt_idx)
-     common_only = orig_reads.loc[list(common_idx)]
-     for a,i in common_only.iterrows():
-	outarr = outarr = [None, None, None, i[0], i[1], i[2], "read not aligned in pop ref"]
-	out_fp.write(custom_write(outarr))
-     
+
     # return if everything is happy
     sys.stderr.write("Completed traversal for " + idf + ".\n")
     return 0
@@ -149,14 +159,27 @@ def compare_reads(orig_bam, final_bam, idf, liftover, chrom=None):
 # outputs - number of aligned reads, mean mapping quality, mean insert size, mean aligned length of reads
 
 # now let's make the two arrays for cross comparison - this will take up a LOT of RAM
-def retrieveReads(bam_fp, sort_col):
+def retrieveReads_filter(bam_fp, sort_col, filter_set):
+	# this sub only outputs the reads included in filter_set
 	tmparray = []
         for i in bam_fp.fetch():
-            tmparray.append((int(str(i.qname).split('.')[1]), int(i.tid), int(i.pos)))
+	    if i.qname in filter_set:
+            	tmparray.append((int(str(i.qname).split('.')[1]), int(i.tid), int(i.pos)))
+	    else:
+		continue
 	outarr = pd.Dataframe(tmparray).sort(columns=[sort_col])
 	outarr = outarr.set_index(outarr[0])
 	return outarr
 
+def retrieveReads_regions(bam_fp, sort_col, regions):
+	# regions is an array of tuples of the shape (chrom, start, end)
+        tmparray = []
+	for r in regions:
+        	for i in bam_fp.pileup(r[0], r[1],r[2]):
+            		tmparray.append((int(str(i.qname).split('.')[1]), int(i.tid), int(i.pos)))
+        outarr = pd.Dataframe(tmparray).sort(columns=[sort_col])
+        outarr = outarr.set_index(outarr[0])
+        return outarr
 
 def custom_write(i):
     result = ''
@@ -193,9 +216,10 @@ def lift_master(ref_pos, liftover, chrom, reverse):
             start_idx = lifttable.index.get_level_values('alt_start')
             end_idx = lifttable.index.get_level_values('alt_end')
             last_chr = chrom
+	    delta = 0
         if ref_pos > lift_til: # check if cached?
             try:
-                delta, lift_til = liftdelta(ref_pos, lifttable, reverse) # converts position into alt ref pos
+                delta, lift_til = liftdelta(ref_pos, lifttable, start_idx, end_idx, reverse) # converts position into alt ref pos
             except:
                 return None
     else:
