@@ -19,15 +19,15 @@ name="$3"
 ###########################################
 
 # combine passed set of GVCF files together for easier analysis
-echo "$(date): GATK combining GVCFs; name: $name..."
+echo "$(date): GATK combining VCFs..."
 java -Xmx"$memory" -Djava.io.tmpdir="$scratchdir" -jar $GATK_HOME/GenomeAnalysisTK.jar \
 --disable_auto_index_creation_and_locking_when_reading_rods \
---sample_rename_mapping_file "$combfile" \
 -R "$reference" \
--T CombineGVCFs \
-`cat "$combfile" | while read i a; do echo -ne "-V:$a $i "; done` \
--o "$name".gvcf.gz;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during CombineGVCFs GATK; name $name"; exit 1; else echo "$(date): CombineGVCFs done; name $name"; fi
+-T CombineVariants \
+--minimalVCF \
+`cat "$combfile" | while read i; do echo -ne "--variant $i "; done` \
+-o "$name".vcf;
+if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during CombineVariants GATK; name $name"; exit 1; else echo "$(date): CombineVariants done"; fi
 
 # done (yes!)
 

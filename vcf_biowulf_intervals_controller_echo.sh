@@ -19,7 +19,7 @@ intervals_list="$4"
 
 ###########################################
 
-cat "$intervals_list" | while read i; do 
-echo "$scripthome/vcf_biowulf_intervals.sh "$varlist" 1 "$memory" "$name"_"$i" "$home"/ipython_notebooks/"$i" 2>"$name"_"$i"_genogvcf.err 1>"$name"_"$i"_genogvcf.out"
+cat "$intervals_list" | while read a i; do 
+echo "$scripthome/vcf_biowulf_intervals.sh "$varlist" 1 "$memory" "$name"_"$a" "$i" 2>"$name"_"$a"_genogvcf.err 1>"$name"_"$a"_genogvcf.out"
 done 
 

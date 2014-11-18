@@ -122,7 +122,7 @@ def compare_alignments_vcf(orig_bam, final_bam, idf, liftover, sites_file, chrom
     out_fp = open(out_file, "wb")
     
     # for fast retrieval - assume the input is already sorted which it has to be
-    sites = sites.set_index([sites['#CHROM'], sites['POS']])[['#CHROM','POS','REF','ALT','INFO','FORMAT',idf]]
+    sites = sites.set_index([sites['#CHROM'], sites['POS']])[['#CHROM','POS','REF','ALT','INFO','FORMAT']]
     
     # some more things to prep for traversal - get list of chromosomes
     if chrom != None:
@@ -149,7 +149,7 @@ def compare_alignments_vcf(orig_bam, final_bam, idf, liftover, sites_file, chrom
 	    alt_result = get_pileup_statistics(final_fp, cur_chrom, newpos)
             final_result = []
             final_result.append([cur_chrom, pos-1])
-            final_result.append(list(slx.loc[pos][['REF','ALT','INFO','FORMAT',idf]]))
+            final_result.append(list(slx.loc[pos][['REF','ALT','INFO','FORMAT']]))
             final_result.append(orig_result)
             final_result.append(alt_result)
             final_result = [item for sublist in final_result for item in sublist]
@@ -180,8 +180,9 @@ def get_pileup_statistics(samfile, chrom, start):
         		tags = dict()
         		for b in p.alignment.tags:
                 		tags[b[0]] = b[1]
+			#print tags.keys()
 			edit_dist.append(tags['NM'])
-			aligned_score.append(tags['AS'])
+			#aligned_score.append(tags['AS'])
 		break
     if reached==True:
         result = [i.n, np.mean(mapq), np.mean(insert), np.mean(edit_dist), np.mean(aligned_score)]

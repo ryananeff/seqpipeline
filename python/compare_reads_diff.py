@@ -19,6 +19,7 @@ def main(argv):
 	liftover = ''
 	sites_file = ''
 	idf = ''
+	chrom=None
    	try:
 		opts, args = getopt.getopt(argv,"c:a:l:s:i:g",["common=","alt=", "liftover=", "sites=", "idf=","chrom="])
    	except getopt.GetoptError:
@@ -44,14 +45,14 @@ def main(argv):
 			assert False, "unhandled option"
 	if idf == '':
 		idf = orig_bam.split("/")[-1].split("_")[0]
-	compare_alignments_vcf(orig_bam, final_bam, liftover, sitesf, idf, chrom)
+	compare_reads(orig_bam, final_bam, liftover, sitesf, idf, chrom)
 
 def compare_reads(orig_bam, final_bam, liftover, sitesf, idf, chrom=None):
     print orig_bam
     print final_bam
-    print sites_file
     print liftover
     print sitesf
+    print idf
     
    #TODO: Add a reverse option in this program
     
@@ -99,7 +100,7 @@ def compare_reads(orig_bam, final_bam, liftover, sitesf, idf, chrom=None):
     
     # open sites file
     num = subprocess.check_output('head -n 1000 ' + sitesf + ' | grep "#" | wc -l', shell=True)
-    sitesarr = pd.read_csv(sites_file, header=None, sep='\t', skiprows=num) # this is a VCF file
+    sitesarr = pd.read_csv(sitesf, header=None, sep='\t', skiprows=int(num)) # this is a VCF file
     sitesarr = sitesarr[[0,1,3,4]] # only keep the chromosome, position, ref, alt columns, drop everything else
     
     # open liftover file
@@ -109,10 +110,8 @@ def compare_reads(orig_bam, final_bam, liftover, sitesf, idf, chrom=None):
     chr_names=["chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13",
                "chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX","chrY"]
     
-    lifttable = pd.read_csv(liftover,sep='\t',header=None, 
-                       names=colnames)
-
-    lifttable.set_index(['ref_chr', 'ref_start', 'ref_end'], inplace=True)
+    lifttable = pd.read_csv(liftover,sep='\t',header=None, names=colnames)
+    lifttable.set_index(['ref_chr', 'alt_start', 'alt_end'], inplace=True)
     
     #open output file
     out_fp = open(out_file, "wb")
@@ -124,35 +123,60 @@ def compare_reads(orig_bam, final_bam, liftover, sitesf, idf, chrom=None):
     # this should mean the pileup command includes start and start+len
 
     # the sites file should be the unique variants in hg38
-    regionlist = zip(sitesarr[0], sitesarr[1], sitesarr[4].map(lambda x: len(x)))
+    regionlist = zip(sitesarr[0], sitesarr[1], sitesarr[1] + sitesarr[4].map(lambda x: len(x)))
 
     sys.stderr.write("Region list loaded (" + str(len(regionlist)) + " variants).\n")
 
     # get the reads... this will take a LONG TIME
-    orig_reads = retrieveReads_regions(orig_fp, 0, regionlist)
-    sys.stderr.write("Collected " + str(len(orig_reads)) + " reads from 1st BAM file. Finding in 2nd BAM file...\n")
+    orig_reads = retrieveReads_regions(orig_fp, 2, regionlist)
+    filter_set = set(orig_reads[0])
+    sys.stderr.write("\nCollected " + str(len(filter_set)) + " reads from 1st BAM file. Finding in 2nd BAM file...\n")
 
-    alt_reads = retrieveReads_filter(final_fp, 0, set(orig_reads[0]))
-    sys.stderr.write("Found " + str(len(alt_reads)) + " reads matching 1st BAM file in 2nd BAM file. Printing statistics...\n")
+    alt_reads = retrieveReads_filter(final_fp, 0, filter_set)
+    sys.stderr.write("\nFound " + str(len(alt_reads)) + " reads matching 1st BAM file in 2nd BAM file. Printing statistics...\n")
 
     # now let's do the comparison... hope this doesn't go on forever
+    count = 0
     for a,i in orig_reads.iterrows():
+	#sys.stderr.write("\rWritten " + str(count) + " lines to file " + str(out_file) + ".")
         read_name = i[0]
-	read_chr = i[1]
-	read_pos = i[2]
-        try:
-            res = alt_reads.loc[alt_read_name]
-        except:
-            outarr = [read_name, read_chr, read_pos, None, None, None, "read not aligned in 2nd BAM (e.g. final BAM)"]
-            out_fp.write(custom_write(outarr))
-        # if the read exists in alt ref, lift it over to com ref and check its position
-        com_pos = lift_master(res[2], lifttable, 'chr' + str(res[1]+1), reverse=True)
-        if ((com_pos != read_pos) | (res[1] != read_chr)):
-		outarr = [read_name, read_chr, read_pos, res[0], res[1], com_pos, "new position in 2nd BAM (e.g. final BAM)"]
-		out_fp.write(custom_write(out_arr))
+	read_chr = "chr" + str(int(i[1]) + 1)
+	read_pos = int(i[2])
+	if a not in alt_reads.index:
+		outarr = [read_name, read_chr, read_pos, None, None, None, None, "not aligned"]
+		count += 1
+                out_fp.write(custom_write(outarr))
+		continue
+	try:
+		alt_name, alt_chr, alt_pos = list(alt_reads.loc[a])
+	except:
+		print alt_reads.loc[a]
+		break
+	if alt_name == 0:
+		print alt_reads.loc[a]
+		break
+	try:
+		alt_chr = "chr" + str(int(alt_chr)+1)
+	except:
+		print "ERROR: impossible."
+		break # shouldn't happen...
+       	# if the read exists in alt ref, lift it over to com ref and check its position
+	try:
+       		com_pos = lift_master(alt_pos, lifttable, alt_chr, reverse=True)
+	except:
+		print "failed lift... ERROR"
+		continue
+       	if ((com_pos != read_pos) | (alt_chr != read_chr)):
+		outarr = [read_name, read_chr, read_pos, alt_name, alt_chr, alt_pos, com_pos, "new position"]
+		count += 1
+		out_fp.write(custom_write(outarr))
+	else:
+		outarr = [read_name, read_chr, read_pos, alt_name, alt_chr, alt_pos, com_pos, "same position"]
+		count += 1
+               	out_fp.write(custom_write(outarr))
 
     # return if everything is happy
-    sys.stderr.write("Completed traversal for " + idf + ".\n")
+    sys.stderr.write("\nCompleted traversal for " + idf + ".\n")
     return 0
 
 # used by compare_alignments - subroutine
@@ -161,23 +185,48 @@ def compare_reads(orig_bam, final_bam, liftover, sitesf, idf, chrom=None):
 # now let's make the two arrays for cross comparison - this will take up a LOT of RAM
 def retrieveReads_filter(bam_fp, sort_col, filter_set):
 	# this sub only outputs the reads included in filter_set
-	tmparray = []
-        for i in bam_fp.fetch():
-	    if i.qname in filter_set:
-            	tmparray.append((int(str(i.qname).split('.')[1]), int(i.tid), int(i.pos)))
-	    else:
-		continue
-	outarr = pd.Dataframe(tmparray).sort(columns=[sort_col])
+	tmparray = set()
+	totlen = len(filter_set)
+        count = 0
+	count2 = 0
+	try:
+		for i in bam_fp.fetch(): # this should end after a while
+	    		count += 1
+	    		name_chk = int(str(i.qname).split(".")[1])
+	    		#sys.stderr.write("\rLooked at " + str(count) + " reads so far, found " + str(count2) + " (" + str(i.tid) + ", " + str(i.pos) +", " + str(name_chk) + ").")
+	    		if name_chk in filter_set:
+				count2 += 1
+            			tmparray.add((name_chk, int(i.tid), int(i.pos)))
+				filter_set.remove(name_chk) # make sure to only see each read once
+	    		else:
+				continue
+	    		if count2 >= totlen:
+				break
+	except:
+		print "ERROR in retrieve_filter"
+		pass
+	outarr = pd.DataFrame(list(tmparray)).sort(columns=[sort_col])
 	outarr = outarr.set_index(outarr[0])
 	return outarr
 
 def retrieveReads_regions(bam_fp, sort_col, regions):
 	# regions is an array of tuples of the shape (chrom, start, end)
-        tmparray = []
-	for r in regions:
-        	for i in bam_fp.pileup(r[0], r[1],r[2]):
-            		tmparray.append((int(str(i.qname).split('.')[1]), int(i.tid), int(i.pos)))
-        outarr = pd.Dataframe(tmparray).sort(columns=[sort_col])
+	region_len = len(regions)
+        tmparray = set()
+	count = 0
+        sys.stderr.write("Processed " + str(0) + " regions out of " + str(region_len) + ".")
+	try:
+		for r in regions:
+			count += 1
+			#sys.stderr.write("\rProcessed " + str(count) + " regions out of " + str(region_len) + " (" + str(r[0]) + ", " + str(r[1]) + ").")
+        		for p in bam_fp.pileup(r[0], r[1],r[2]):
+				for a in p.pileups:
+					i = a.alignment
+            				tmparray.add((int(str(i.qname).split(".")[1]), int(i.tid), int(i.pos)))
+	except:
+		print "ERROR in retrieve_region"
+		pass
+        outarr = pd.DataFrame(list(tmparray)).sort(columns=[sort_col])
         outarr = outarr.set_index(outarr[0])
         return outarr
 

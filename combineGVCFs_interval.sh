@@ -15,6 +15,7 @@ source environment.sh
 combfile="$1"
 memory="$2"
 name="$3"
+interval="$4"
 
 ###########################################
 
@@ -26,6 +27,7 @@ java -Xmx"$memory" -Djava.io.tmpdir="$scratchdir" -jar $GATK_HOME/GenomeAnalysis
 -R "$reference" \
 -T CombineGVCFs \
 `cat "$combfile" | while read i a; do echo -ne "-V:$a $i "; done` \
+-L "$interval" \
 -o "$name".gvcf.gz;
 if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during CombineGVCFs GATK; name $name"; exit 1; else echo "$(date): CombineGVCFs done; name $name"; fi
 

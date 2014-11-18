@@ -2,7 +2,7 @@
 
 # initialize
 ENV="environment.sh"
-if [ -f ENV ];
+if [ -f $ENV ];
 then
     echo "Detected environment file!\nRemember that this file defines the reference that should be used in later steps."       
 else
