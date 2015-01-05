@@ -12,21 +12,26 @@ fi
 source environment.sh
 
 # set variables
-varlist="$1"
-threads="$2"
-memory="$3"
-name="$4"
+combfile="$1"
+memory="$2"
+name="$3"
+intervals="$4"
 
 ###########################################
 
-echo "$(date): GATK genotyping all GVCFs; This may take some time..."
+# combine passed set of GVCF files together for easier analysis
+echo "$(date): GATK combining VCFs..."
 java -Xmx"$memory" -Djava.io.tmpdir="$scratchdir" -jar $GATK_HOME/GenomeAnalysisTK.jar \
 --disable_auto_index_creation_and_locking_when_reading_rods \
---sample_rename_mapping_file "$varlist" \
+--assumeIdenticalSamples \
 -R "$reference" \
--T GenotypeGVCFs \
--nt "$threads" \
--o "$name".genotypes.vcf.gz \
-`cat "$varlist" | while read i a; do echo -ne "-V:$a $i "; done`;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during GenotypeGVCFs GATK"; exit 1; else echo "$(date): VCF creation done! Huzzah!"; fi
+-T CombineVariants \
+-L "$intervals" \
+`cat "$combfile" | while read i; do echo -ne "--variant $i "; done` \
+--genotypemergeoption UNSORTED \
+-o "$name".vcf;
+if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during CombineVariants GATK; name $name"; exit 1; else echo "$(date): CombineVariants done"; fi
+
+# done (yes!)
+
 

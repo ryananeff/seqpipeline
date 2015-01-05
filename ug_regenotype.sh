@@ -12,21 +12,23 @@ fi
 source environment.sh
 
 # set variables
-varlist="$1"
-threads="$2"
-memory="$3"
-name="$4"
+varlist=$1
+memory=$2
+sitesf=$3
+name=$4
 
 ###########################################
 
-echo "$(date): GATK genotyping all GVCFs; This may take some time..."
+echo "$(date): GATK generating regenotyped VCF..."
 java -Xmx"$memory" -Djava.io.tmpdir="$scratchdir" -jar $GATK_HOME/GenomeAnalysisTK.jar \
 --disable_auto_index_creation_and_locking_when_reading_rods \
 --sample_rename_mapping_file "$varlist" \
 -R "$reference" \
--T GenotypeGVCFs \
--nt "$threads" \
--o "$name".genotypes.vcf.gz \
-`cat "$varlist" | while read i a; do echo -ne "-V:$a $i "; done`;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during GenotypeGVCFs GATK"; exit 1; else echo "$(date): VCF creation done! Huzzah!"; fi
+-T UnifiedGenotyper \
+-o "$name".UG.regen.SNPs.vcf \
+-L "$sitesf" \
+--alleles "$sitesf" \
+-gt_mode GENOTYPE_GIVEN_ALLELES \
+`cat "$varlist" | while read i a; do echo -ne "-I:$a $i "; done`;
+if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during VCF regenotyping"; exit 1; else echo "$(date): VCF regenotyping done"; fi
 

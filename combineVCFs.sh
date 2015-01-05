@@ -26,6 +26,7 @@ java -Xmx"$memory" -Djava.io.tmpdir="$scratchdir" -jar $GATK_HOME/GenomeAnalysis
 -R "$reference" \
 -T CombineVariants \
 `cat "$combfile" | while read i; do echo -ne "--variant $i "; done` \
+--genotypemergeoption UNSORTED \
 -o "$name".vcf;
 if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during CombineVariants GATK; name $name"; exit 1; else echo "$(date): CombineVariants done"; fi
 
