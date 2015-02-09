@@ -1,4 +1,4 @@
-#!/data/projects_gibbons/home/neffra/anaconda2/bin/python
+#!/usr/bin/python
 
 import sys, getopt
 import time
@@ -64,7 +64,9 @@ def liftoverVCF(ref_vcf, liftover_file, out_file, reverse=False): # this goes fr
             if outline[1] != None:
                 outarr.append(outline)
     outarr = pd.DataFrame(outarr)
-    outarr.to_csv(out_file, header=None, sep='\t', index=None) # and we're done!        
+    outarr.to_csv(out_file, header=None, sep='\t', index=None)
+    # reheader
+    subprocess.check_output('head -n ' + str(num) + " " + ref_vcf + " | cat - " + out_file + " > tmp && mv tmp " + out_file, shell=True) # and we're done!
 
 # this is the code to make liftovers work going in the hg## --> AFRG1 direction
 lifttable = ''

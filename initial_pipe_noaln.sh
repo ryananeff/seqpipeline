@@ -12,12 +12,12 @@ fi
 source environment.sh
 
 # set variables
-left=$1
-right=$2
-sample=$3
-lane=$4
-study=$5
-name="$sample"_"$lane"
+#left=$1
+#right=$2
+#sample=$3
+#lane=$4
+#study=$5
+name=$1
 
 ###########################################
 
@@ -46,52 +46,52 @@ name="$sample"_"$lane"
 #if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during temporary file removal"; exit 1; else echo "$(date): removed temporary SAM and BAM."; fi
 
 # remove duplicates (picard)
-echo "$(date): starting duplicate marking..."
-java -Xmx8g -Djava.io.tmpdir="$scratchdir" -jar $home/tools/picard-tools/MarkDuplicates.jar \
-I="$name".sort.bam \
-O="$name".rmdup.bam \
-M="$name".dupmetrics.txt \
-ASSUME_SORTED=true REMOVE_DUPLICATES=false \
-MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=60 \
-VALIDATION_STRINGENCY=LENIENT;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during duplicate removal"; exit 1; else echo "$(date): markduplicates done."; fi
+#echo "$(date): starting duplicate marking..."
+#java -Xmx8g -Djava.io.tmpdir="$scratchdir" -jar $home/tools/picard-tools/MarkDuplicates.jar \
+#I="$name".sort.bam \
+#O="$name".rmdup.bam \
+#M="$name".dupmetrics.txt \
+#ASSUME_SORTED=true REMOVE_DUPLICATES=false \
+#MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=60 \
+#VALIDATION_STRINGENCY=LENIENT;
+#if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during duplicate removal"; exit 1; else echo "$(date): markduplicates done."; fi
 
 # index bam
-echo "$(date): indexing duplicate-removed BAM..."
-samtools index "$name".rmdup.bam;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during samtools indexing post duplicate removal"; exit 1; else echo "$(date): indexing dup-rem BAM done."; fi
+#echo "$(date): indexing duplicate-removed BAM..."
+#samtools index "$name".rmdup.bam;
+#if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during samtools indexing post duplicate removal"; exit 1; else echo "$(date): indexing dup-rem BAM done."; fi
 
 # picard fixmate to write coordinates
-echo "$(date): starting picardtools fixmateinfo..."
-java -Xmx8g -Djava.io.tmpdir="$scratchdir" -jar $home/tools/picard-tools/FixMateInformation.jar \
-I="$name".rmdup.bam \
-O="$name".mated.bam \
-SO=coordinate \
-VALIDATION_STRINGENCY=LENIENT;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during picard fixmateinfo"; exit 1; else echo "$(date): fixmate done."; fi
+#echo "$(date): starting picardtools fixmateinfo..."
+#java -Xmx8g -Djava.io.tmpdir="$scratchdir" -jar $home/tools/picard-tools/FixMateInformation.jar \
+#I="$name".rmdup.bam \
+#O="$name".mated.bam \
+#SO=coordinate \
+#VALIDATION_STRINGENCY=LENIENT;
+#if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during picard fixmateinfo"; exit 1; else echo "$(date): fixmate done."; fi
 
 # index bam
-echo "$(date): indexing mate-fixed BAM..."
-samtools index "$name".mated.bam;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during samtools indexing post fixmate"; exit 1; else echo "$(date): indexing fixmate BAM done."; fi
+#echo "$(date): indexing mate-fixed BAM..."
+#samtools index "$name".mated.bam;
+#if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during samtools indexing post fixmate"; exit 1; else echo "$(date): indexing fixmate BAM done."; fi
 
 # add back read groups
-echo "$(date): adding back read groups..."
-java -Xmx8g -Djava.io.tmpdir="$scratchdir" -jar $home/tools/picard-tools/AddOrReplaceReadGroups.jar \
-I="$name".mated.bam \
-O="$name".mated.rg.bam \
-RGID="$lane" \
-RGLB="$sample" \
-RGPL=Illumina \
-RGSM="$sample" \
-RGPU="$study" \
-VALIDATION_STRINGENCY=LENIENT;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during read group adding"; exit 1; else echo "$(date): adding readgroups done"; fi
+#echo "$(date): adding back read groups..."
+#java -Xmx8g -Djava.io.tmpdir="$scratchdir" -jar $home/tools/picard-tools/AddOrReplaceReadGroups.jar \
+#I="$name".mated.bam \
+#O="$name".mated.rg.bam \
+#RGID="$lane" \
+#RGLB="$sample" \
+#RGPL=Illumina \
+#RGSM="$sample" \
+#RGPU="$study" \
+#VALIDATION_STRINGENCY=LENIENT;
+#if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during read group adding"; exit 1; else echo "$(date): adding readgroups done"; fi
 
 # index bam again
-echo "$(date): indexing mate-rg BAM..."
-samtools index "$name".mated.rg.bam;
-if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during samtools index mate-rg"; exit 1; else echo "$(date): indexing mate-rg done."; fi
+#echo "$(date): indexing mate-rg BAM..."
+#samtools index "$name".mated.rg.bam;
+#if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during samtools index mate-rg"; exit 1; else echo "$(date): indexing mate-rg done."; fi
 
 # generate targets for indel realignment (to keep things consistent)
 echo "$(date): GATK generating targets for indel realignment..."
