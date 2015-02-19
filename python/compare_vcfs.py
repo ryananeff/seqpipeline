@@ -49,10 +49,14 @@ def makeVCFvenn(v_com, v_alt, v_ref):
 	subprocess.check_output('cat ' + v_alt + ' | grep -v "#" | cut -f1-2,4-5 > ' + v_alt + '.sites', shell=True)
 	subprocess.check_output('cat ' + v_ref + ' | grep -v "#" | cut -f1-2,4-5 > ' + v_ref + '.sites', shell=True)
 	
+	print "Opened files. Now reading in..."
+	
 	#open vcf files into RAM as dataframes - only keep certain columns
 	com_df = pd.read_csv(v_com + ".sites", sep="\t", header=None)
 	alt_df = pd.read_csv(v_alt + ".sites", sep="\t", header=None)
 	ref_df = pd.read_csv(v_ref + ".sites", sep="\t", header=None)
+
+	print "Doing the comparisons."
 
 	#do the comparisons
 	alt_s = set(zip(alt_df[0],alt_df[1]))
@@ -64,6 +68,8 @@ def makeVCFvenn(v_com, v_alt, v_ref):
 	results['ref_com_alt'] = pd.DataFrame(list(ref_s.intersection(com_s).intersection(alt_s)))
 	results['alt_only'] = pd.DataFrame(list(alt_s.difference(com_s).difference(ref_s)))
 	results['com_only'] = pd.DataFrame(list(com_s.difference(alt_s).difference(ref_s)))
+	
+	print "Comparisons done. Now getting original files back."
 
 	#now, let's get the original files back
 	alt_df.reset_index(inplace=True)
@@ -77,6 +83,8 @@ def makeVCFvenn(v_com, v_alt, v_ref):
 	com_only_list = sorted(list(com_df.loc[zip(results['com_only'][0], results['com_only'][1])]['index']))
 	com_all_list = sorted(list(com_df.loc[zip(results['ref_com_alt'][0], results['ref_com_alt'][1])]['index']))
 	com_noref_list = sorted(list(com_df.loc[zip(results['alt_com_noref'][0], results['alt_com_noref'][1])]['index']))
+	
+	print "Writing alt files."
 
 	alt_file = open(v_alt, 'rb')
 	alt_only_file = open(v_alt + ".alt_only.vcf", "wb")
@@ -97,13 +105,15 @@ def makeVCFvenn(v_com, v_alt, v_ref):
 	alt_all_file.close()
 	alt_noref_file.close()
 	alt_file.close()
+	
+	print "Writing com files."
 
 	com_file = open(v_com, 'rb')
 	com_only_file = open(v_com + ".com_only.vcf", "wb")
 	com_all_file = open(v_com + ".com_all.vcf", "wb")
 	com_noref_file = open(v_com + ".com_alt_noref.vcf", "wb")
 	count = 0
-	for i in alt_file:
+	for i in com_file:
 	    if "#" in i: 
 	        continue
 	    if count in com_only_list:
@@ -118,6 +128,7 @@ def makeVCFvenn(v_com, v_alt, v_ref):
 	com_noref_file.close()
 	com_file.close()
 	
+	print "Done!"	
 	# we're done!
 
 # run the program if called from the command line

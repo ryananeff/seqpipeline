@@ -13,21 +13,27 @@ source environment.sh
 
 # set variables
 vcffile="$1"
-sampfile="$2"
-threads=1
-name="$3"
+vcffile2="$2"
+intersect="$3"
 
 ###########################################
 
-# select SNPs only for future analysis
-echo "$(date): GATK selecting SNPs..."
+echo "$(date): GATK generating union set"
+java -Xmx16g -Djava.io.tmpdir=$scratchdir -jar $GATK_HOME/GenomeAnalysisTK.jar \
+-R "$reference" \
+-T CombineVariants \
+--variant:hg38 "$vcffile" \
+--variant:afrg "$vcffile2" \
+-o union.vcf;
+if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during CombineVariants GATK"; exit 1; else echo "$(date): CombineVariants done."; fi
+
+echo "$(date): GATK selecting intersection"
 java -Xmx16g -Djava.io.tmpdir=$scratchdir -jar $GATK_HOME/GenomeAnalysisTK.jar \
 -R "$reference" \
 -T SelectVariants \
---variant "$vcffile" \
-`cat $sampfile | while read i; do echo -ne "-sn $i "; done` \
--nt "$threads" \
--o "$name".vcf;
+--variant union.vcf \
+-select 'set == "Intersection"' \
+-o "$intersect".vcf;
 if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during SelectVariants GATK"; exit 1; else echo "$(date): SelectVariants done."; fi
 
 # done (yes!)

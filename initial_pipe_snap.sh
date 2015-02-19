@@ -25,7 +25,7 @@ name="$sample"_"$lane"
 # since we have 256 GB of RAM on each machine, let's run four threads on each machine with 64G RAM
 echo "$(date): starting SNAP alignment...";
 $snapbeta paired "$snapindex" "$left" "$right" -o "$name".sort.bam \
--h 2000 -H 300000 -d 20 -t 16 -mcp 1500000 \
+-h 2000 -H 300000 -d 20 -t 16 -mcp 3000000 \
 -R '@RG\tID:1\tSM:"$1"\tLB:"$1"\tPL:Illumina\tPU:hs';
 if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during SNAP alignment"; exit 1; else echo "$(date): SNAP alignment done."; fi
 
