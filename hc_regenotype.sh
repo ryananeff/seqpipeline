@@ -28,8 +28,7 @@ java -Xmx"$memory" -Djava.io.tmpdir="$scratchdir" -jar $GATK_HOME/GenomeAnalysis
 -T HaplotypeCaller \
 -o "$name".HC.regen.vcf \
 -L "$sitesf" \
---alleles "$sitesf" \
--gt_mode GENOTYPE_GIVEN_ALLELES \
+-gt_mode DISCOVERY \
 `cat "$varlist" | while read i a; do echo -ne "-I:$a $i "; done`;
 if [ $? -ne 0 ]; then echo "$(date): exited with non-zero status ($?) during VCF regenotyping"; exit 1; else echo "$(date): VCF regenotyping done"; fi
 

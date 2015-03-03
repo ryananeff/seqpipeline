@@ -45,9 +45,13 @@ def makeVCFvenn(v_com, v_alt, v_ref):
 	print v_ref
 
 	# subset files with only important columns
-	subprocess.check_output('cat ' + v_com + ' | grep -v "#" | cut -f1-2,4-5 > ' + v_com + '.sites', shell=True)
-	subprocess.check_output('cat ' + v_alt + ' | grep -v "#" | cut -f1-2,4-5 > ' + v_alt + '.sites', shell=True)
-	subprocess.check_output('cat ' + v_ref + ' | grep -v "#" | cut -f1-2,4-5 > ' + v_ref + '.sites', shell=True)
+	import os.path
+	if False == os.path.isfile(v_com + '.sites'):
+		subprocess.check_output('cat ' + v_com + ' | grep -v "#" | cut -f1-2,4-5 > ' + v_com + '.sites', shell=True)
+	if False == os.path.isfile(v_alt + '.sites'):
+		subprocess.check_output('cat ' + v_alt + ' | grep -v "#" | cut -f1-2,4-5 > ' + v_alt + '.sites', shell=True)
+	if False == os.path.isfile(v_ref + '.sites'):
+		subprocess.check_output('cat ' + v_ref + ' | grep -v "#" | cut -f1-2,4-5 > ' + v_ref + '.sites', shell=True)
 	
 	print "Opened files. Now reading in..."
 	
@@ -59,9 +63,9 @@ def makeVCFvenn(v_com, v_alt, v_ref):
 	print "Doing the comparisons."
 
 	#do the comparisons
-	alt_s = set(zip(alt_df[0],alt_df[1]))
-	com_s = set(zip(com_df[0],com_df[1]))
-	ref_s = set(zip(ref_df[0],ref_df[1]))
+	alt_s = frozenset(zip(alt_df[0],alt_df[1]))
+	com_s = frozenset(zip(com_df[0],com_df[1]))
+	ref_s = frozenset(zip(ref_df[0],ref_df[1]))
 
 	results = dict()
 	results['alt_com_noref'] = pd.DataFrame(list(alt_s.intersection(com_s).difference(ref_s)))
@@ -74,15 +78,15 @@ def makeVCFvenn(v_com, v_alt, v_ref):
 	#now, let's get the original files back
 	alt_df.reset_index(inplace=True)
 	alt_df.set_index([alt_df[0], alt_df[1]], inplace=True)
-	alt_only_list = sorted(list(alt_df.loc[zip(results['alt_only'][0], results['alt_only'][1])]['index']))
-	alt_all_list = sorted(list(alt_df.loc[zip(results['ref_com_alt'][0], results['ref_com_alt'][1])]['index']))
-	alt_noref_list = sorted(list(alt_df.loc[zip(results['alt_com_noref'][0], results['alt_com_noref'][1])]['index']))
+	alt_only_list = frozenset(alt_df.loc[zip(results['alt_only'][0], results['alt_only'][1])]['index'])
+	alt_all_list = frozenset(alt_df.loc[zip(results['ref_com_alt'][0], results['ref_com_alt'][1])]['index'])
+	alt_noref_list = frozenset(alt_df.loc[zip(results['alt_com_noref'][0], results['alt_com_noref'][1])]['index'])
 	
 	com_df.reset_index(inplace=True)
 	com_df.set_index([com_df[0], com_df[1]], inplace=True)
-	com_only_list = sorted(list(com_df.loc[zip(results['com_only'][0], results['com_only'][1])]['index']))
-	com_all_list = sorted(list(com_df.loc[zip(results['ref_com_alt'][0], results['ref_com_alt'][1])]['index']))
-	com_noref_list = sorted(list(com_df.loc[zip(results['alt_com_noref'][0], results['alt_com_noref'][1])]['index']))
+	com_only_list = frozenset(com_df.loc[zip(results['com_only'][0], results['com_only'][1])]['index'])
+	com_all_list = frozenset(com_df.loc[zip(results['ref_com_alt'][0], results['ref_com_alt'][1])]['index'])
+	com_noref_list = frozenset(com_df.loc[zip(results['alt_com_noref'][0], results['alt_com_noref'][1])]['index'])
 	
 	print "Writing alt files."
 
@@ -100,6 +104,8 @@ def makeVCFvenn(v_com, v_alt, v_ref):
 		alt_all_file.write(i)
 	    if count in alt_noref_list:
 		alt_noref_file.write(i)
+	    if (count % 1000) == 0:
+		print "Read %s lines." % (str(count))
 	    count += 1
 	alt_only_file.close()
 	alt_all_file.close()
